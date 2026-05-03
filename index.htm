@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einkaufsliste</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛒</text></svg>">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="categories.js"></script>
+    <style>
+        :root { --primary: #2563eb; --bg: #f1f5f9; --card: #ffffff; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 450px; background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h1.main-title { text-align: center; margin: 0 0 15px 0; font-size: 1.6rem; color: #1e293b; }
+        #reader { width: 280px !important; height: 200px !important; margin: 0 auto 15px auto; border-radius: 12px; overflow: hidden; border: 3px solid #e2e8f0; }
+        .status-bar { text-align: center; padding: 8px; margin-bottom: 15px; border-radius: 8px; background: #f8fafc; font-size: 0.85rem; color: #64748b; min-height: 1.2rem; transition: opacity 0.5s; opacity: 0; }
+        .status-bar.visible { opacity: 1; }
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1e293b; color: white; padding: 12px 24px; border-radius: 50px; font-size: 0.9rem; font-weight: bold; transition: 0.4s; z-index: 1000; opacity: 0; visibility: hidden; }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+        
+        .category-group { margin-bottom: 20px; }
+        .category-group.all-checked { opacity: 0.6; }
+        .category-title { font-size: 0.9rem; font-weight: bold; color: #1e293b; background: #e2e8f0; padding: 5px 12px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        
+        .done-separator { border-top: 2px solid #cbd5e1; margin: 30px 0 20px 0; position: relative; text-align: center; }
+        .done-separator::after { content: "Erledigt"; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--card); padding: 0 15px; color: #94a3b8; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+
+        .item { border-bottom: 1px solid #f1f5f9; background: white; padding: 10px; }
+        .item.checked { opacity: 0.5; background: #f8fafc; }
+        .item.checked strong { text-decoration: line-through; }
+        .item-main { display: flex; align-items: center; gap: 12px; }
+        .check-btn { font-size: 1.4rem; cursor: pointer; background: none; border: none; padding: 0; min-width: 30px; }
+        .item-info { flex-grow: 1; cursor: pointer; }
+        .item-info small { color: #94a3b8; display: block; font-size: 0.75rem; }
+        .ingredients-box { font-size: 0.75rem; color: #475569; background: #f8fafc; padding: 10px; margin-top: 8px; border-radius: 8px; border-left: 4px solid var(--primary); display: none; }
+        .ingredients-box.show { display: block; }
+        
+        .barcode-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: space-between; font-family: monospace; color: #1e293b; }
+        .barcode-wrapper { display: flex; align-items: center; gap: 6px; }
+        .barcode-img { width: 22px; height: auto; display: block; filter: contrast(1.2); }
+        .copy-btn { cursor: pointer; background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: #1e293b; font-weight: bold; }
+        
+        .controls { display: flex; align-items: center; gap: 6px; }
+        .btn-qty { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; }
+        .btn-del { color: #ef4444; border: none; background: none; cursor: pointer; font-size: 1.1rem; }
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn-main { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+        .btn-share { background: var(--primary); color: white; }
+        .btn-clear { background: #cbd5e1; color: #1e293b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="main-title">🛒 Einkaufsliste</h1>
+    <div id="reader"></div>
+    <div id="status" class="status-bar">Bereit</div>
+    <div id="list-container"></div>
+    <div class="actions">
+        <button class="btn-main btn-share" onclick="shareList()">📋 Kopieren</button>
+        <button class="btn-main btn-clear" onclick="clearAll()">🗑️ Leeren</button>
+    </div>
+</div>
+<div id="toast"></div>
+<script>
+    let shoppingList = JSON.parse(localStorage.getItem('mySmartList')) || [];
+    const listContainer = document.getElementById('list-container');
+    const statusEl = document.getElementById('status');
+    const toastEl = document.getElementById('toast');
+    let toastTimer;
+    const beep = new Audio('beep.ogg');
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: {width: 220, height: 130} }, 
+        (code) => {
+            beep.currentTime = 0; beep.play().catch(()=>{});
+            updateStatus("Suche...", true);
+            fetchProduct(code);
+            html5QrCode.pause();
+            setTimeout(() => html5QrCode.resume(), 3000);
+        }
+    ).catch(() => updateStatus("Kamera-Fehler", true));
+
+    function updateStatus(msg, visible) {
+        statusEl.innerText = msg;
+        statusEl.classList.toggle('visible', visible);
+    }
+
+    async function fetchProduct(code) {
+        try {
+            const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,categories_tags,ingredients_text_de,ingredients_text`);
+            const data = await res.json();
+            if (data.status === 1) {
+                const name = data.product.product_name || "Unbekannt";
+                const brand = data.product.brands || "";
+                const ingredients = data.product.ingredients_text_de || data.product.ingredients_text || "Keine Info.";
+                const category = determineCategory(data.product.categories_tags, name);
+                addItem(name, brand, category, ingredients, code);
+                showToast("🛒 " + name + " hinzugefügt");
+                updateStatus("", false);
+            } else { updateStatus("Nicht gefunden", true); }
+        } catch (e) { updateStatus("Fehler.", true); }
+    }
+
+    function showToast(msg) {
+        clearTimeout(toastTimer);
+        toastEl.innerText = msg;
+        toastEl.classList.add('show');
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 5000);
+    }
+
+    function addItem(name, brand, category, ingredients, barcode) {
+        const existing = shoppingList.find(i => i.barcode === barcode);
+        if (existing) { existing.qty++; } 
+        else { shoppingList.push({ name, brand, category, ingredients, barcode, qty: 1, checked: false, showIngredients: false }); }
+        updateUI();
+    }
+
+    function toggleCheck(idx) { shoppingList[idx].checked = !shoppingList[idx].checked; updateUI(); }
+    function toggleDetails(idx) { shoppingList[idx].showIngredients = !shoppingList[idx].showIngredients; updateUI(); }
+    function changeQty(idx, diff) { 
+        shoppingList[idx].qty += diff; 
+        if (shoppingList[idx].qty <= 0) { if(confirm("Löschen?")) shoppingList.splice(idx, 1); else shoppingList[idx].qty = 1; }
+        updateUI(); 
+    }
+    function clearAll() { if (confirm("Liste leeren?")) { shoppingList = []; updateUI(); } }
+    
+    function copyBarcode(barcode) {
+        navigator.clipboard.writeText(barcode);
+        showToast("📋 Barcode kopiert!");
+    }
+
+    function shareList() {
+        if (shoppingList.length === 0) {
+            showToast("Liste ist leer!");
+            return;
+        }
+
+        // Gruppierung wie in der UI
+        const grouped = shoppingList.reduce((acc, item) => {
+            if (!acc[item.category]) acc[item.category] = [];
+            acc[item.category].push(item);
+            return acc;
+        }, {});
+
+        // Kategorien sortieren (offene zuerst)
+        const sortedCategoryKeys = Object.keys(grouped).sort((a, b) => {
+            const aDone = grouped[a].every(item => item.checked);
+            const bDone = grouped[b].every(item => item.checked);
+            return aDone - bDone;
+        });
+
+        let exportText = "🛒 MEINE EINKAUFSLISTE\n\n";
+        let separatorAdded = false;
+
+        sortedCategoryKeys.forEach(cat => {
+            const items = grouped[cat];
+            const isAllChecked = items.every(item => item.checked);
+            
+            if (isAllChecked && !separatorAdded && shoppingList.some(i => !i.checked)) {
+                exportText += "---------- ERLEDIGT ----------\n";
+                separatorAdded = true;
+            }
+
+            exportText += `[ ${cat.toUpperCase()} ]\n`;
+            
+            // Items innerhalb sortieren
+            const sortedItems = [...items].sort((a, b) => a.checked - b.checked);
+            sortedItems.forEach(i => {
+                const status = i.checked ? "✅" : "⬜";
+                exportText += `${status} ${i.qty}x ${i.name} (${i.brand})\n`;
+            });
+            exportText += "\n";
+        });
+
+        navigator.clipboard.writeText(exportText.trim());
+        showToast("📋 Liste wie angezeigt kopiert!");
+    }
+
+    function updateUI() {
+        localStorage.setItem('mySmartList', JSON.stringify(shoppingList));
+        listContainer.innerHTML = '';
+        
+        const grouped = shoppingList.reduce((acc, item) => {
+            if (!acc[item.category]) acc[item.category] = [];
+            acc[item.category].push(item);
+            return acc;
+        }, {});
+
+        const sortedCategoryKeys = Object.keys(grouped).sort((a, b) => {
+            const aDone = grouped[a].every(item => item.checked);
+            const bDone = grouped[b].every(item => item.checked);
+            return aDone - bDone;
+        });
+
+        let separatorAdded = false;
+
+        sortedCategoryKeys.forEach(cat => {
+            const items = grouped[cat];
+            const isAllChecked = items.every(item => item.checked);
+            
+            if (isAllChecked && !separatorAdded && shoppingList.some(i => !i.checked)) {
+                const sep = document.createElement('div');
+                sep.className = 'done-separator';
+                listContainer.appendChild(sep);
+                separatorAdded = true;
+            }
+
+            const section = document.createElement('div');
+            section.className = `category-group ${isAllChecked ? 'all-checked' : ''}`;
+            section.innerHTML = `<div class="category-title">${cat} <span>${items.length}</span></div>`;
+            
+            const sortedItems = [...items].sort((a, b) => a.checked - b.checked);
+
+            sortedItems.forEach((item) => {
+                const idx = shoppingList.indexOf(item);
+                const li = document.createElement('div');
+                li.className = `item ${item.checked ? 'checked' : ''}`;
+                li.innerHTML = `
+                    <div class="item-main">
+                        <button class="check-btn" onclick="toggleCheck(${idx})">${item.checked ? '✅' : '⬜'}</button>
+                        <div class="item-info" onclick="toggleDetails(${idx})">
+                            <strong>${item.name}</strong>
+                            <small>${item.brand} • Details</small>
+                        </div>
+                        <div class="controls">
+                            <button class="btn-qty" onclick="changeQty(${idx}, -1)">-</button>
+                            <span>${item.qty}</span>
+                            <button class="btn-qty" onclick="changeQty(${idx}, 1)">+</button>
+                            <button class="btn-del" onclick="changeQty(${idx}, -999)">✕</button>
+                        </div>
+                    </div>
+                    <div class="ingredients-box ${item.showIngredients ? 'show' : ''}">
+                        <strong>Info:</strong><br>${item.ingredients}
+                        <div class="barcode-detail">
+                            <div class="barcode-wrapper">
+                                <img src="barcode.webp" class="barcode-img" alt="BC">
+                                <span>${item.barcode}</span>
+                            </div>
+                            <span class="copy-btn" onclick="copyBarcode('${item.barcode}')">📄 Kopieren</span>
+                        </div>
+                    </div>`;
+                section.appendChild(li);
+            });
+            listContainer.appendChild(section);
+        });
+    }
+    updateUI();
+</script>
+</body>
+</html>
