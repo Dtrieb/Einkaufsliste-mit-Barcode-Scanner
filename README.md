@@ -44,7 +44,7 @@ Da die App rein auf HTML, CSS und JavaScript basiert, ist keine Installation not
 
 ## 📱 Bedienung
 
-1.  **Hinzufügen:** Scanne ein Produkt oder füge es (je nach Ausbaustufe) manuell hinzu.
+1.  **Hinzufügen:** Scanne ein Produkt und füge es automatisch hinzu.
 2.  **Mengen:** Nutze die `+` und `-` Buttons, um die Anzahl anzupassen.
 3.  **Details:** Klicke auf den Produktnamen, um Inhaltsstoffe und den Barcode zu sehen.
 4.  **Erledigen:** Klicke auf das Quadrat/Haken-Symbol. Der Artikel rutscht automatisch nach unten.
