@@ -2,6 +2,11 @@
 
 Eine intelligente, browserbasierte Einkaufsliste mit integriertem Barcode-Scanner. Die App erkennt Produkte über die OpenFoodFacts-API, sortiert sie automatisch in Kategorien und hält die Liste durch intelligentes "Auto-Move-to-Bottom" übersichtlich.
 
+## 🚀 Live Demo
+
+Die App ist direkt im Browser einsatzbereit:
+👉 **[Smart Shopping List ausprobieren](https://dtrieb.github.io/Einkaufsliste-mit-Barcode-Scanner/)**
+
 ## ✨ Features
 
 *   **Barcode-Scanner:** Nutzt die Smartphone-Kamera zum direkten Scannen von Produkten.
