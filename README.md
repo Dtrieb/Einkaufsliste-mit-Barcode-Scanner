@@ -5,7 +5,7 @@ Eine intelligente, browserbasierte Einkaufsliste mit integriertem Barcode-Scanne
 ## 🚀 Live Demo
 
 Die App ist direkt im Browser einsatzbereit:
-👉 **[Smart Shopping List ausprobieren](https://dtrieb.github.io/Einkaufsliste-mit-Barcode-Scanner/)**
+👉 **[Smart Shopping List ausprobieren](https://schlapa.net/shoppinglist/index.htm)**
 
 ## ✨ Features
 
