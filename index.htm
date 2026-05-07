@@ -87,7 +87,7 @@
 
     async function fetchProduct(code) {
         try {
-            const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,categories_tags,ingredients_text_de,ingredients_text`);
+            const res = await fetch(`https://de.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,categories_tags,ingredients_text_de,ingredients_text`);
             const data = await res.json();
             if (data.status === 1) {
                 const name = data.product.product_name || "Unbekannt";
